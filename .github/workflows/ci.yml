@@ -49,10 +49,11 @@ jobs:
           test -s reports/report.md
           echo "All artifacts present."
 
-      - name: Upload artifacts
+      - name: Upload artifacts (non-blocking)
         uses: actions/upload-artifact@v4
         if: always()
+        continue-on-error: true
         with:
           name: smoke-reports-${{ matrix.python-version }}
           path: reports/
-          retention-days: 14
+          retention-days: 1
