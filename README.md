@@ -116,7 +116,7 @@ To address these constraints, I implemented three optimizations:
 
 ```bash
 # Clone the repository
-git clone https://github.com/YOUR_USERNAME/fedavg-edge-ai.git
+git clone https://github.com/karim4353/fedavg-edge-ai
 cd fedavg-edge-ai
 
 # Install dependencies
