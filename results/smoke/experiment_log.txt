@@ -2,16 +2,16 @@ Smoke Test Experiment Log
 =========================
 Seed: 42
 Clients: 5
-Elapsed seconds: 0.80
+Elapsed seconds: 0.82
 MQTT total KB: 13457.8
 MQTT total messages: 100
 
 Results summary:
   Algorithm Final Accuracy Final Loss Total Time (s)  Rounds/Epochs
 Centralized         0.9639     0.1664           0.04              5
-     FedSGD         0.8611     0.5465           0.08              5
-     FedAvg         0.9583     0.1980           0.18             10
-Edge FedAvg         0.9833     0.1486           0.13             10
+     FedSGD         0.8611     0.5465           0.07              5
+     FedAvg         0.9583     0.1980           0.20             10
+Edge FedAvg         0.9833     0.1486           0.11             10
 
 Generated files:
 - accuracy_curves.png
