@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Lint, test, smoke experiment
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11"]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+          python -m pip install -e .
+
+      - name: Run unit tests
+        run: pytest -q --maxfail=1
+
+      - name: Run smoke experiment
+        run: python -m experiments.run_all --config configs/smoke.json
+
+      - name: Verify expected artifacts exist
+        run: |
+          test -s reports/tables/results.csv
+          test -s reports/tables/edge_ai.csv
+          test -s reports/plots/convergence.png
+          test -s reports/plots/iid_vs_noniid.png
+          test -s reports/plots/edge_ai.png
+          test -s reports/report.md
+          echo "All artifacts present."
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: smoke-reports-${{ matrix.python-version }}
+          path: reports/
+          retention-days: 14
