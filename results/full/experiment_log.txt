@@ -1,0 +1,51 @@
+Full Experiment Suite Log
+=========================
+Seed: 42
+Clients: 10
+Elapsed seconds: 12.71
+Train shape: (1437, 64)
+Test shape: (360, 64)
+IID avg classes/client: 10.0
+Non-IID avg classes/client: 2.7
+
+Results summary:
+          Algorithm Partition  Accuracy  F1 Score     Loss  Rounds/Epochs  Parameters  Model Size (KB)  Time (s)
+        Centralized       N/A  0.975000  0.974718 0.130663             50       17226       134.578125  0.352867
+             FedSGD       IID  0.961111  0.960721 0.160930             50       17226       134.578125  0.244108
+             FedSGD   Non-IID  0.958333  0.958178 0.151434             50       17226       134.578125  0.185973
+ FedAvg (E=1, B=10)       IID  0.972222  0.972046 0.137705             50       17226       134.578125  0.316781
+ FedAvg (E=1, B=10)   Non-IID  0.955556  0.954876 0.201196             50       17226       134.578125  0.319559
+ FedAvg (E=5, B=10)       IID  0.972222  0.972160 0.156261             50       17226       134.578125  1.180924
+ FedAvg (E=5, B=10)   Non-IID  0.952778  0.951818 0.216132             50       17226       134.578125  1.195004
+FedAvg (E=10, B=10)       IID  0.975000  0.974902 0.160404             50       17226       134.578125  2.220951
+FedAvg (E=10, B=10)   Non-IID  0.944444  0.940950 0.309441             50       17226       134.578125  2.271859
+FedAvg (E=5, B=inf)       IID  0.963889  0.963650 0.169097             50       17226       134.578125  0.503694
+FedAvg (E=5, B=inf)   Non-IID  0.936111  0.934173 0.240072             50       17226       134.578125  0.450287
+        Edge FedAvg       IID  0.977778  0.977806 0.152016             50        4546        35.515625  0.760600
+        Edge FedAvg   Non-IID  0.952778  0.952596 0.198494             50        4546        35.515625  0.723186
+
+Quantization summary:
+Precision  Accuracy  Size (KB)
+  float64  0.972222 134.578125
+  float32  0.972222  67.289062
+  float16  0.972222  33.644531
+     int8  0.972222  16.822266
+
+Pruning summary:
+Sparsity  Accuracy
+      0%  0.972222
+     10%  0.972222
+     30%  0.975000
+     50%  0.961111
+     70%  0.908333
+
+Communication summary:
+     Method  total_bytes    total_kb  total_mb  total_messages  num_rounds  avg_bytes_per_round  simulated_total_latency_ms
+     FedSGD     89575200 87475.78125 85.425568             650          50            1791504.0                      6500.0
+     FedAvg     89575200 87475.78125 85.425568             650          50            1791504.0                      6500.0
+Edge FedAvg     23639200 23085.15625 22.544098             650          50             472784.0                      6500.0
+
+Edge comparison:
+Full params: 17226
+Edge params: 4546
+Compression ratio: 7.58x

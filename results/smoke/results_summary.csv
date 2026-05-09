@@ -1,0 +1,5 @@
+Algorithm,Final Accuracy,Final Loss,Total Time (s),Rounds/Epochs
+Centralized,0.9639,0.1664,0.04,5
+FedSGD,0.8611,0.5465,0.08,5
+FedAvg,0.9583,0.1980,0.18,10
+Edge FedAvg,0.9833,0.1486,0.13,10

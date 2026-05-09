@@ -1,129 +1,143 @@
 """
-Data generation and federated partitioning.
+data.py - Data loading, IID and non-IID partitioning for federated learning.
 
-We generate a synthetic multi-class classification dataset designed to mimic
-the qualitative properties of the ECG heartbeat dataset used in the team's
-presentation: 5 classes, strong class imbalance (~71% majority, ~2% minority),
-compact feature dimensionality suited to a TinyML-style MLP.
+Reproduces the partitioning strategies from McMahan et al. (2017):
+  - IID: shuffle data uniformly and distribute evenly across clients
+  - Non-IID: sort by label, create shards, assign 2 shards per client
+    (pathological non-IID as described in the paper, Section 3)
 
-A fully synthetic dataset is used (rather than ECG, MNIST or CIFAR) so the
-repository is reproducible offline, requires no external download, and runs
-quickly enough for GitHub Actions. The generator is seeded for exact
-reproducibility.
+We use scikit-learn's digits dataset (10 classes, 1797 samples, 64 features)
+as a lightweight proxy for MNIST. This is scientifically reasonable because:
+  - Same task structure (10-class digit classification)
+  - Small enough for CI/CD and laptop execution
+  - Deterministic and built into scikit-learn (no downloads needed)
 """
-from __future__ import annotations
-
-from typing import List, Tuple
 
 import numpy as np
+from sklearn.datasets import load_digits
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
 
-# Approximate per-class proportions of the MIT-BIH/ECG heartbeat dataset
-# referenced in the team presentation (N, S, V, F, Q-ish). They sum to 1.0.
-_ECG_LIKE_IMBALANCE = np.array([0.71, 0.16, 0.06, 0.02, 0.05], dtype=np.float64)
 
+def load_digit_data(seed=42):
+    """Load and preprocess the digits dataset.
 
-def make_synthetic_classification(
-    n_samples: int = 2000,
-    n_features: int = 32,
-    n_classes: int = 5,
-    class_imbalance: bool = True,
-    seed: int = 42,
-) -> Tuple[np.ndarray, np.ndarray]:
-    """Generate (X, y) for a synthetic ECG-like multi-class problem.
-
-    Each class has its own Gaussian centroid in feature space; per-class noise
-    scales are drawn so that classes overlap somewhat (a learnable but not
-    trivial problem at the chosen sample size).
+    Returns:
+        X_train, X_test, y_train, y_test: numpy arrays
+        The features are standardized to zero mean and unit variance.
     """
-    if n_classes < 2:
-        raise ValueError("n_classes must be >= 2")
-    rng = np.random.default_rng(seed)
+    digits = load_digits()
+    X, y = digits.data, digits.target
 
-    if class_imbalance:
-        proportions = _ECG_LIKE_IMBALANCE.copy()
-        if n_classes != len(proportions):
-            # Adapt vector to requested class count, keeping skewness flavour.
-            proportions = np.linspace(1.0, 0.05, n_classes)
-        proportions = proportions[:n_classes]
-    else:
-        proportions = np.full(n_classes, 1.0 / n_classes)
-    proportions = proportions / proportions.sum()
+    # Normalize to [0, 1] then standardize
+    X = X / 16.0  # digits pixel values are 0-16
 
-    counts = np.floor(proportions * n_samples).astype(int)
-    counts[0] += n_samples - counts.sum()  # absorb rounding gap into majority
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=seed, stratify=y
+    )
 
-    centroids = rng.normal(0.0, 1.4, size=(n_classes, n_features))
+    scaler = StandardScaler()
+    X_train = scaler.fit_transform(X_train)
+    X_test = scaler.transform(X_test)
 
-    X_parts: list[np.ndarray] = []
-    y_parts: list[np.ndarray] = []
-    for k, c in enumerate(counts):
-        if c == 0:
-            continue
-        scale = np.abs(1.0 + 0.3 * rng.standard_normal(n_features)) + 0.4
-        Xk = centroids[k] + rng.normal(0.0, 1.0, size=(c, n_features)) * scale
-        yk = np.full(c, k, dtype=np.int64)
-        X_parts.append(Xk)
-        y_parts.append(yk)
-
-    X = np.concatenate(X_parts, axis=0)
-    y = np.concatenate(y_parts, axis=0)
-
-    # Shuffle then standardize features (zero mean, unit std).
-    perm = rng.permutation(len(y))
-    X = X[perm]
-    y = y[perm]
-    X = (X - X.mean(axis=0)) / (X.std(axis=0) + 1e-8)
-    return X.astype(np.float32), y.astype(np.int64)
+    return X_train, X_test, y_train, y_test
 
 
-def train_test_split(
-    X: np.ndarray, y: np.ndarray, test_frac: float = 0.2, seed: int = 42
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    rng = np.random.default_rng(seed)
-    n = len(y)
-    idx = rng.permutation(n)
-    n_test = max(1, int(test_frac * n))
-    test_idx = idx[:n_test]
-    train_idx = idx[n_test:]
-    return X[train_idx], y[train_idx], X[test_idx], y[test_idx]
+def partition_iid(X, y, num_clients, seed=42):
+    """IID partitioning: shuffle and distribute evenly.
 
+    As described in McMahan et al. Section 3:
+    'the data is shuffled, and then partitioned into [K] clients
+     each receiving [n/K] examples'
 
-def partition_iid(
-    X: np.ndarray, y: np.ndarray, n_clients: int, seed: int = 42
-) -> List[Tuple[np.ndarray, np.ndarray]]:
-    """Shuffle data and split into `n_clients` roughly-equal IID shards."""
-    if n_clients < 1:
-        raise ValueError("n_clients must be >= 1")
-    rng = np.random.default_rng(seed)
-    idx = rng.permutation(len(y))
-    splits = np.array_split(idx, n_clients)
-    return [(X[s], y[s]) for s in splits]
+    Args:
+        X: feature matrix (n_samples, n_features)
+        y: label vector (n_samples,)
+        num_clients: number of clients K
+        seed: random seed for reproducibility
 
-
-def partition_noniid_by_label(
-    X: np.ndarray,
-    y: np.ndarray,
-    n_clients: int,
-    shards_per_client: int = 2,
-    seed: int = 42,
-) -> List[Tuple[np.ndarray, np.ndarray]]:
-    """Pathological non-IID partition (McMahan et al. 2017, Section 3).
-
-    Sort by label, split into `n_clients * shards_per_client` shards, assign
-    each client `shards_per_client` shards. With the default `shards_per_client=2`,
-    most clients see only 1-2 distinct classes.
+    Returns:
+        list of (X_k, y_k) tuples, one per client
     """
-    if n_clients < 1 or shards_per_client < 1:
-        raise ValueError("invalid client/shard counts")
-    rng = np.random.default_rng(seed)
-    n_shards = n_clients * shards_per_client
-    sort_idx = np.argsort(y, kind="stable")
-    shards = np.array_split(sort_idx, n_shards)
-    shard_order = rng.permutation(n_shards)
+    rng = np.random.RandomState(seed)
+    n = len(X)
+    indices = rng.permutation(n)
 
-    clients: list[Tuple[np.ndarray, np.ndarray]] = []
-    for c in range(n_clients):
-        ids = shard_order[c * shards_per_client : (c + 1) * shards_per_client]
-        client_idx = np.concatenate([shards[i] for i in ids])
-        clients.append((X[client_idx], y[client_idx]))
-    return clients
+    # Split into num_clients roughly equal parts
+    splits = np.array_split(indices, num_clients)
+
+    client_data = []
+    for split in splits:
+        client_data.append((X[split], y[split]))
+
+    return client_data
+
+
+def partition_non_iid(X, y, num_clients, shards_per_client=2, seed=42):
+    """Non-IID partitioning (pathological).
+
+    As described in McMahan et al. Section 3:
+    'we first sort the data by digit label, divide it into 200 shards
+     of size 300, and assign each of 100 clients 2 shards'
+
+    This means most clients only see examples from 2 digit classes,
+    creating a highly heterogeneous data distribution.
+
+    Args:
+        X: feature matrix
+        y: label vector
+        num_clients: number of clients K
+        shards_per_client: number of shards assigned to each client (default=2)
+        seed: random seed
+
+    Returns:
+        list of (X_k, y_k) tuples, one per client
+    """
+    rng = np.random.RandomState(seed)
+    n = len(X)
+    num_shards = num_clients * shards_per_client
+
+    # Sort by label
+    sorted_indices = np.argsort(y, kind='stable')
+
+    # Divide into shards
+    shard_size = n // num_shards
+    shards = []
+    for i in range(num_shards):
+        start = i * shard_size
+        end = start + shard_size
+        if i == num_shards - 1:
+            end = n  # last shard gets remaining
+        shards.append(sorted_indices[start:end])
+
+    # Shuffle shards and assign to clients
+    shard_indices = list(range(num_shards))
+    rng.shuffle(shard_indices)
+
+    client_data = []
+    for i in range(num_clients):
+        client_shards = shard_indices[i * shards_per_client:(i + 1) * shards_per_client]
+        indices = np.concatenate([shards[s] for s in client_shards])
+        client_data.append((X[indices], y[indices]))
+
+    return client_data
+
+
+def get_client_stats(client_data):
+    """Compute statistics about client data distribution.
+
+    Args:
+        client_data: list of (X_k, y_k) tuples
+
+    Returns:
+        list of dicts with 'num_samples' and 'label_distribution'
+    """
+    stats = []
+    for X_k, y_k in client_data:
+        unique, counts = np.unique(y_k, return_counts=True)
+        stats.append({
+            'num_samples': len(y_k),
+            'label_distribution': dict(zip(unique.tolist(), counts.tolist())),
+            'num_classes': len(unique),
+        })
+    return stats

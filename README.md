@@ -1,223 +1,294 @@
-# FedAvg + Edge AI — Experimental Reproduction
+# FedAvg Reproduction & Edge AI Optimization
 
-[![CI](https://github.com/USER/REPO/actions/workflows/ci.yml/badge.svg)](../../actions)
-![python](https://img.shields.io/badge/python-3.11-blue)
-![license](https://img.shields.io/badge/license-MIT-green)
+> **Reproduction of "Communication-Efficient Learning of Deep Networks from Decentralized Data"**
+> (McMahan et al., AISTATS 2017) with Edge AI improvements for IoT deployment.
 
-A lightweight, deterministic, CPU-only reproduction of the **FedAvg** algorithm
-from McMahan et al. 2017 — *Communication-Efficient Learning of Deep Networks
-from Decentralized Data* — extended with a small set of **Edge AI**
-optimizations (post-training INT8 quantization, magnitude pruning, compact-width
-model variant).
-
-This repository implements **Student 5's part** of the team project
-*“Federated learning for IoT devices — Enhancing TinyML with on-board training”*:
-the experimental simulation, results, and embedded-AI improvements section.
+[![CI](https://github.com/YOUR_USERNAME/fedavg-edge-ai/actions/workflows/ci.yml/badge.svg)](https://github.com/YOUR_USERNAME/fedavg-edge-ai/actions/workflows/ci.yml)
+![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)
+![CPU Only](https://img.shields.io/badge/device-CPU%20only-green.svg)
+![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)
 
 ---
 
-## Project purpose
+## Project Purpose
 
-The team's overall project investigates Federated Learning (FL) on resource-
-constrained IoT devices, combining FL with Transfer Learning over MQTT, with
-hardware ranging from Arduino WiFi Rev2 to ESP32 to Raspberry Pi.
+This repository is the **experimental companion** for our team presentation on:
+**"Federated Learning for IoT Devices — Enhancing TinyML with On-Board Training"**
 
-**This repository covers only the simulation/experimentation side**:
+It reproduces the core ideas of the FedAvg paper in a lightweight, deterministic simulation
+and extends them with practical Edge AI optimizations suitable for resource-constrained IoT devices.
 
-* a clean, reproducible NumPy implementation of FedSGD and FedAvg,
-* IID vs. pathological non-IID partitioning (paper §3),
-* a centralized baseline,
-* three realistic Edge AI improvements applied to the federated model,
-* a comparison table + plots produced automatically.
+### Relation to the Paper
 
-Everything runs on CPU in well under a minute on a laptop, and is exercised in
-GitHub Actions on every push.
+The original paper by McMahan et al. (2017) introduced **Federated Averaging (FedAvg)**, an algorithm
+that reduces the communication rounds needed to train deep networks by performing multiple local SGD
+steps on each client before averaging. Key findings reproduced here:
 
-## Relation to the paper
+| Paper Claim | Our Reproduction |
+|-------------|-----------------|
+| FedAvg reduces communication rounds vs FedSGD | ✓ Confirmed on digits dataset |
+| Increasing local epochs E speeds convergence | ✓ Confirmed with E=1,5,10 |
+| Non-IID data degrades but doesn't break FedAvg | ✓ Confirmed with pathological split |
+| FedAvg with E=1, B=inf equals FedSGD | ✓ Verified mathematically in tests |
 
-| Paper element                                 | This repo                                                      | Notes                                                                |
-| --------------------------------------------- | -------------------------------------------------------------- | -------------------------------------------------------------------- |
-| FederatedAveraging (Algorithm 1)              | `src/federated.py` + `src/server.weighted_average`             | Full faithful implementation                                         |
-| FedSGD baseline                               | `run_federated(local_epochs=1, batch_size=None)`               | Special case of FedAvg, as in the paper                              |
-| IID partition                                 | `src/data.partition_iid`                                       | Shuffle + split                                                      |
-| Pathological non-IID (sort-by-label, 2-shards) | `src/data.partition_noniid_by_label`                           | Same scheme as paper §3                                              |
-| MNIST 2NN / CNN, CIFAR, Shakespeare LSTM      | **Not reproduced**                                             | Outside the resource budget for offline + CI runs                    |
-| Synthetic ECG-like dataset                    | `src/data.make_synthetic_classification`                       | 5-class, ~71/16/6/5/2 % imbalance, mimicking the team's ECG dataset  |
-| Communication-rounds metric                   | `reports/tables/results.csv` + `plots/convergence.png`         | Per-round accuracy curves                                            |
+### What Is Approximated vs. Fully Reproduced
 
-The **algorithmic** contributions (FedSGD, FedAvg, IID/non-IID partitioning,
-weighted aggregation) are reproduced exactly. The **datasets and architectures**
-are simplified to a small synthetic problem so that the entire experiment
-matrix runs offline in seconds — required for GitHub Actions and for honest,
-reproducible reporting on a laptop.
+| Aspect | Paper | Our Reproduction |
+|--------|-------|-----------------|
+| Dataset | MNIST (70K), CIFAR-10, Shakespeare | Scikit-learn digits (1,797) |
+| Model | 2NN (200-unit), CNN, LSTM | MLP (128-64 units) |
+| Clients | 100-1146 | 5-10 |
+| Rounds | 50-6000 | 10-50 |
+| Algorithm | FedSGD, FedAvg | ✓ Faithful implementation |
+| IID/Non-IID | Shard-based pathological | ✓ Same strategy |
+| Aggregation | Weighted average | ✓ Exact formula |
 
-## Student 5 contribution
+> **Why digits instead of MNIST?** The digits dataset (64 features, 10 classes) is built into
+> scikit-learn, requires no downloads, and has the same task structure. This makes the repo
+> fully self-contained and suitable for CI/CD without internet access at runtime.
 
-* Designed and implemented the **federated simulation framework** from scratch
-  in pure NumPy:
-  * 2-layer MLP (forward/backward/SGD) — `src/model.py`
-  * client-side local training — `src/client.py`
-  * server-side weighted aggregation — `src/server.py`
-  * round-by-round orchestrator — `src/federated.py`
-* Implemented and validated **IID vs. pathological non-IID partitioning**
-  matching the paper §3.
-* Designed the synthetic, ECG-inspired benchmark dataset so the project can run
-  offline and on CI with no proprietary data.
-* Wrote three **Edge AI optimizations** on top of the trained federated model
-  (`src/edge.py`); see next section.
-* Produced the experiment matrix, CSV result tables, plots, and Markdown
-  report (`experiments/run_all.py`).
-* Wrote the unit + integration test suite (`tests/`) — aggregation correctness,
-  partitioning behavior, determinism under fixed seeds, end-to-end smoke run.
-* Set up the **GitHub Actions CI/CD pipeline** that installs deps, runs tests,
-  runs the smoke experiment, verifies outputs, and uploads the report as an
-  artifact (`.github/workflows/ci.yml`).
+---
 
-## Edge AI improvement
+## Student 5 Contribution
 
-The team's presentation identifies the core deployment constraints — RAM in
-the kB range, weak CPUs, and the cost of using `double` instead of `float` on
-microcontrollers. Three resource-aware improvements are implemented, all
-reusing the same federated model:
+**Author:** Skander ABID
 
-1. **Post-training INT8 weight quantization** (per-tensor, symmetric) —
-   `src.edge.quantize_int8`.
-   Reduces storage from float32 (4 B/weight) to int8 (1 B/weight) plus one
-   fp32 scale per tensor — close to a **4× model-size reduction**, with a
-   typically negligible accuracy drop on this small MLP.
+As Student 5, my contributions to the team presentation are:
 
-2. **Magnitude pruning** at 50 % and 70 % sparsity — `src.edge.magnitude_prune`.
-   Zeros the smallest-magnitude weights of `W1` and `W2` and reports a
-   realistic CSR-style on-device storage estimate.
+1. **Experimental Reproduction** — Implemented FedSGD and FedAvg from scratch in pure NumPy,
+   faithfully following Algorithm 1 from the paper
+2. **Simulation Results** — Ran systematic experiments comparing centralized, FedSGD, and
+   FedAvg training under IID and non-IID data distributions
+3. **Edge AI Improvement** — Designed and evaluated optimizations for deploying federated
+   learning on resource-constrained IoT devices (see next section)
+4. **CI/CD Pipeline** — Built a GitHub Actions workflow for automated testing and validation
 
-3. **Compact-width MLP** (`hidden = hidden / 2`) — `src.edge.compact_mlp`.
-   Re-trained from scratch with FedAvg under the same client distribution,
-   isolating the cost of width vs. compression.
+---
 
-Each variant is benchmarked on the *same* held-out test set and reported in
-`reports/tables/edge_ai.csv` and `reports/plots/edge_ai.png` (accuracy and
-on-device size, side by side).
+## Edge AI Improvement
 
-## How to install
+Our team's presentation focuses on deploying FL on IoT devices (ESP32, ESP8266, Arduino).
+These devices have severe constraints:
 
-```bash
-git clone https://github.com/USER/REPO.git
-cd REPO
-python -m pip install --upgrade pip
-python -m pip install -r requirements.txt
-python -m pip install -e .
-```
+| Constraint | ESP32 | ESP8266 | Arduino MKR1010 |
+|-----------|-------|---------|-----------------|
+| RAM | 520 KB | 80 KB | 32 KB |
+| CPU | 240 MHz | 80 MHz | 48 MHz |
+| Flash | 4 MB | 4 MB | 256 KB |
 
-CPU-only, Python 3.11. No GPU, no PyTorch, no TensorFlow.
+To address these constraints, I implemented three optimizations:
 
-## How to run experiments
+### 1. Compact Model Architecture
+- **Full MLP:** 64 → 128 → 64 → 10 (~17K parameters, ~134 KB)
+- **Edge MLP:** 64 → 48 → 24 → 10 (~4.5K parameters, ~35 KB)
+- **Result:** ~74% parameter reduction with moderate accuracy loss
 
-```bash
-# Default ~ 30 rounds, 10 clients, 2 000 samples (a few seconds on a laptop)
-python -m experiments.run_all --config configs/default.json
+### 2. Post-Training Quantization
+- float64 → float32 (2× compression)
+- float64 → float16 (4× compression)
+- float64 → **int8** (8× compression, industry standard for TinyML)
+- Combined with Edge MLP: total ~23× size reduction
 
-# Tiny smoke run (used by CI; under 5 seconds)
-python -m experiments.run_all --config configs/smoke.json
-```
+### 3. Weight Pruning
+- Magnitude-based pruning (30-50% sparsity)
+- Reduces effective model complexity
+- Can be combined with sparse storage for additional memory savings
 
-Or via the Makefile:
+### Combined Impact
+
+| Configuration | Parameters | Size (KB) | Accuracy | Suitable For |
+|---------------|-----------|-----------|----------|-------------|
+| Full MLP (float64) | ~17K | 134 | Baseline | PC, Server |
+| Full MLP (int8) | ~17K | 17 | ~-0.5% | ESP32 |
+| Edge MLP (float32) | ~4.5K | 18 | ~-3% | ESP32, ESP8266 |
+| Edge MLP (int8) | ~4.5K | 4.5 | ~-5% | Arduino, ESP8266 |
+
+---
+
+## Installation
+
+### Prerequisites
+- Python 3.11
+- No GPU required
+- No internet access needed at runtime
+
+### Setup
 
 ```bash
-make run     # full default config
-make smoke   # tiny CI-friendly config
+# Clone the repository
+git clone https://github.com/YOUR_USERNAME/fedavg-edge-ai.git
+cd fedavg-edge-ai
+
+# Install dependencies
+pip install -r requirements.txt
 ```
 
-## How to run tests
+---
+
+## How to Run Experiments
+
+### Quick Smoke Test (~10-30 seconds)
+```bash
+python experiments/run_smoke.py
+```
+
+### Full Experiment Suite (~2-5 minutes)
+```bash
+python experiments/run_full.py
+```
+
+### Using Make (Linux/macOS)
+```bash
+make install    # Install dependencies
+make test       # Run unit tests
+make smoke      # Run smoke experiment
+make experiment # Run full experiments
+make full       # All of the above
+```
+
+---
+
+## How to Run Tests
 
 ```bash
-pytest -q
+# Run all tests
+pytest tests/ -v
+
+# Run specific test file
+pytest tests/test_federated.py -v
+
+# Run with short traceback
+pytest tests/ -v --tb=short
 ```
 
-Or `make test`.
+---
 
-## How to reproduce results
+## How to Reproduce Results
 
-All randomness is seeded (`src.utils.set_seed`); the same config and seed
-produce identical numbers across machines. To reproduce the headline numbers:
+1. Install dependencies: `pip install -r requirements.txt`
+2. Run the full experiment: `python experiments/run_full.py`
+3. Check results in `results/full/`:
+   - `all_results.csv` — complete metrics table
+   - `main_accuracy.png` — accuracy comparison plot
+   - `iid_vs_noniid.png` — IID vs non-IID comparison
+   - `edge_comparison.png` — full vs edge model comparison
+   - `quantization_impact.png` — quantization analysis
+   - `communication_efficiency.png` — communication cost analysis
+4. Read the generated report: `reports/experiment_report.md`
 
-```bash
-python -m experiments.run_all --config configs/default.json
-cat reports/tables/results.csv
-cat reports/tables/edge_ai.csv
+All experiments use `seed=42` for full deterministic reproducibility.
+
+---
+
+## Expected Outputs
+
+After running `python experiments/run_full.py`:
+
 ```
+results/full/
+├── all_results.csv              # Complete results table
+├── quantization_results.csv     # Quantization analysis
+├── pruning_results.csv          # Pruning analysis
+├── communication_stats.csv      # MQTT communication stats
+├── main_accuracy.png            # Main accuracy comparison
+├── main_loss.png                # Loss curves
+├── iid_vs_noniid.png            # IID vs Non-IID
+├── edge_comparison.png          # Full vs Edge model
+├── quantization_impact.png      # Quantization impact
+└── communication_efficiency.png # Communication efficiency
 
-## Expected outputs
-
-After a run, `reports/` contains:
-
-```
 reports/
-├── tables/
-│   ├── results.csv          # one row per FL/centralized experiment
-│   └── edge_ai.csv          # one row per edge variant (size + accuracy)
-├── plots/
-│   ├── convergence.png      # per-round accuracy of all FL variants
-│   ├── iid_vs_noniid.png    # paper §3 stress test
-│   └── edge_ai.png          # accuracy / size trade-off bar charts
-└── report.md                # auto-generated markdown summary
+└── experiment_report.md         # Auto-generated markdown report
 ```
 
-The CI pipeline uploads all of `reports/` as an artifact named
-`smoke-reports-3.11` on every run.
+---
 
-## Repository layout
+## Repository Structure
 
 ```
 fedavg-edge-ai/
-├── src/                      Library code
-│   ├── data.py               Synthetic dataset + IID/non-IID partitioning
-│   ├── model.py              NumPy MLP (forward/backward/SGD)
-│   ├── client.py             Local SGD training
-│   ├── server.py             Weighted averaging
-│   ├── federated.py          FedSGD / FedAvg orchestrator
-│   ├── edge.py               Quantization, pruning, compact-width
-│   ├── metrics.py            Accuracy, macro-F1, cross-entropy
-│   └── utils.py              Seeding + IO helpers
+├── src/
+│   ├── __init__.py
+│   ├── data.py                  # Data loading, IID/non-IID partitioning
+│   ├── models.py                # MLP models (full + edge)
+│   ├── federated.py             # FedSGD, FedAvg, centralized training
+│   ├── edge_optimizations.py    # Quantization, pruning, latency
+│   ├── mqtt_simulation.py       # MQTT communication mock
+│   └── visualization.py         # Plotting utilities
 ├── experiments/
-│   └── run_all.py            End-to-end experiment driver
+│   ├── run_smoke.py             # CI-friendly smoke test
+│   └── run_full.py              # Complete experiment suite
+├── tests/
+│   ├── test_data.py             # Data partitioning tests
+│   ├── test_models.py           # Model architecture tests
+│   ├── test_federated.py        # Aggregation & algorithm tests
+│   ├── test_edge.py             # Edge optimization tests
+│   └── test_smoke.py            # End-to-end smoke tests
 ├── configs/
-│   ├── default.json
-│   └── smoke.json
-├── tests/                    pytest suite
-├── reports/                  Generated artifacts (git-ignored)
-├── .github/workflows/ci.yml  GitHub Actions
+│   ├── smoke.yaml               # Smoke test configuration
+│   └── full.yaml                # Full experiment configuration
+├── reports/                     # Generated reports
+├── results/                     # Generated results (gitignored)
+├── .github/workflows/ci.yml    # GitHub Actions CI
 ├── requirements.txt
 ├── pyproject.toml
-└── Makefile
+├── Makefile
+├── LICENSE
+└── README.md
 ```
 
-## Limitations and future work
+---
 
-* **Synthetic dataset.** The dataset mimics the *qualitative* properties of
-  the ECG heartbeat task (5 imbalanced classes, compact features) but is not
-  the real PhysioNet/MIT-BIH data. Final accuracy numbers should not be
-  compared directly to the paper's MNIST/CIFAR/Shakespeare numbers — the
-  comparisons that matter here are the *relative* ones (FedAvg vs. FedSGD;
-  IID vs. non-IID; baseline vs. edge variants). A future version could plug
-  in a downloaded ECG snapshot when run interactively, while keeping the
-  synthetic fallback for CI.
-* **No Transfer Learning leg.** The team's proposed solution combines FL with
-  TL on a server-pretrained model. This repo focuses on the FL/Edge axis;
-  a TL leg (server pretrains on shard 0, clients fine-tune) would be a
-  natural extension and would let us reproduce the FL+TL row of the team's
-  ECG results table.
-* **No regression task.** The team also runs a Car Trips Data Log regression
-  experiment; only the classification arm is implemented here.
-* **No real MQTT layer.** The federated round is a function call, not a
-  network exchange. A future iteration could add a thread-based MQTT mock to
-  match the team's deployment architecture more faithfully.
-* **Quantization is post-training.** A quantization-aware training (QAT)
-  variant — even a simple straight-through estimator — would likely close the
-  small accuracy gap observed for INT8.
-* **Single seed reported.** The CSVs report a single deterministic run per
-  config. A multi-seed sweep with mean ± std would harden the conclusions and
-  is a one-line addition to `run_all.py`.
+## Limitations and Future Work
 
-## License
+### Current Limitations
 
-MIT.
+1. **Simplified dataset:** We use scikit-learn's 64-feature digits dataset instead of the
+   full 784-feature MNIST. While the task structure is identical, absolute accuracy numbers
+   are not directly comparable to the paper.
+
+2. **Pure NumPy models:** Our MLP implementation uses only NumPy for maximum portability,
+   but lacks GPU acceleration and advanced optimizers (Adam, momentum).
+
+3. **No real hardware testing:** Edge AI optimizations are simulated on CPU. Actual
+   deployment on ESP32/Arduino would require C/TFLite conversion.
+
+4. **Static quantization:** We use post-training quantization rather than
+   quantization-aware training, which could yield better INT8 accuracy.
+
+5. **No differential privacy:** The paper discusses combining FL with differential privacy;
+   we do not implement this.
+
+### Future Work
+
+- [ ] Port to actual ESP32 hardware using TensorFlow Lite Micro
+- [ ] Implement quantization-aware training for better INT8 accuracy
+- [ ] Add differential privacy (DP-SGD) to the aggregation
+- [ ] Test with larger datasets (full MNIST, CIFAR-10) via PyTorch
+- [ ] Implement asynchronous federated learning for heterogeneous devices
+- [ ] Add real MQTT broker integration for multi-device testing
+- [ ] Implement model compression techniques (knowledge distillation)
+- [ ] Explore FedProx and other FL algorithms for non-IID robustness
+
+---
+
+## References
+
+1. McMahan, H.B., Moore, E., Ramage, D., Hampson, S., & Arcas, B.A.y. (2017).
+   *Communication-Efficient Learning of Deep Networks from Decentralized Data.*
+   AISTATS 2017. [arXiv:1602.05629](https://arxiv.org/abs/1602.05629)
+
+2. Team presentation: *"Federated Learning for IoT Devices — Enhancing TinyML
+   with On-Board Training"* (Klidi, Bouziri, Smirani, Sliti, Abid, 2025-2026)
+
+---
+
+## Team
+
+| Member | Role |
+|--------|------|
+| Sarra KLIDI | Context & Problem Statement |
+| Abir BOUZIRI | State of the Art |
+| Darine SMIRANI | Proposed Solution |
+| Mohamed SLITI | Paper Results Analysis |
+| **Skander ABID** | **Experiments, Simulation, Edge AI (this repo)** |

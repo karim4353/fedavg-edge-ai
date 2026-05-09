@@ -3,30 +3,33 @@ __pycache__/
 *.py[cod]
 *$py.class
 *.egg-info/
-.eggs/
-build/
 dist/
-.pytest_cache/
-.coverage
-htmlcov/
+build/
+*.egg
 
-# Virtual envs
-.venv/
+# Virtual environments
 venv/
+.venv/
 env/
-.env
 
 # IDE
 .vscode/
 .idea/
 *.swp
+*.swo
 
 # OS
 .DS_Store
 Thumbs.db
 
-# Generated artifacts
-reports/plots/*.png
-reports/tables/*.csv
-reports/*.md
-!reports/.gitkeep
+# Local reference materials / archives
+*.pdf
+*.zip
+
+# Temporary files
+_paper_text.txt
+_presentation_text.txt
+*.tmp
+
+# Jupyter
+.ipynb_checkpoints/

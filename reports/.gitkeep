@@ -1,2 +1,0 @@
-Generated artifacts go here. Files are produced by `python -m experiments.run_all`
-and are git-ignored — see `.gitignore`.

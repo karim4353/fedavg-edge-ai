@@ -1,0 +1,51 @@
+# Full experiment configuration
+# Comprehensive evaluation (~2-5 minutes on laptop)
+
+experiment:
+  name: "full_evaluation"
+  seed: 42
+  verbose: true
+
+data:
+  num_clients: 10
+  test_size: 0.2
+
+centralized:
+  num_epochs: 50
+  learning_rate: 0.1
+  batch_size: 32
+
+fedsgd:
+  num_rounds: 50
+  learning_rate: 0.5
+  client_fraction: 0.3
+
+fedavg:
+  num_rounds: 50
+  learning_rate: 0.1
+  local_epochs: 5
+  batch_size: 10
+  client_fraction: 0.3
+
+fedavg_variants:
+  - name: "FedAvg (E=1, B=10)"
+    local_epochs: 1
+    batch_size: 10
+  - name: "FedAvg (E=5, B=10)"
+    local_epochs: 5
+    batch_size: 10
+  - name: "FedAvg (E=10, B=10)"
+    local_epochs: 10
+    batch_size: 10
+  - name: "FedAvg (E=5, B=inf)"
+    local_epochs: 5
+    batch_size: null
+
+edge:
+  num_rounds: 50
+  learning_rate: 0.1
+  local_epochs: 5
+  batch_size: 10
+  client_fraction: 0.3
+  quantization_levels: ["float64", "float32", "float16", "int8"]
+  pruning_levels: [0.0, 0.1, 0.3, 0.5, 0.7]

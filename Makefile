@@ -1,33 +1,19 @@
-# Convenience targets for the FedAvg Edge AI project
-.PHONY: install test smoke run all clean help
-
-PY ?= python
-
-help:
-	@echo "Targets:"
-	@echo "  install   - install dependencies"
-	@echo "  test      - run the test suite"
-	@echo "  smoke     - run a tiny end-to-end experiment (CI-friendly)"
-	@echo "  run       - run the full experiment suite (default config)"
-	@echo "  all       - install, test, smoke, run"
-	@echo "  clean     - remove generated artifacts"
+.PHONY: install test smoke experiment full clean
 
 install:
-	$(PY) -m pip install --upgrade pip
-	$(PY) -m pip install -r requirements.txt
+	pip install -r requirements.txt
 
 test:
-	$(PY) -m pytest
+	pytest tests/ -v --tb=short
 
 smoke:
-	$(PY) -m experiments.run_all --config configs/smoke.json
+	python experiments/run_smoke.py
 
-run:
-	$(PY) -m experiments.run_all --config configs/default.json
+experiment:
+	python experiments/run_full.py
 
-all: install test smoke run
+full: install test smoke experiment
 
 clean:
-	rm -rf reports/plots/*.png reports/tables/*.csv reports/*.md
+	rm -rf results/ reports/*.png reports/*.csv
 	find . -type d -name __pycache__ -exec rm -rf {} +
-	rm -rf .pytest_cache build dist *.egg-info
