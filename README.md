@@ -288,7 +288,7 @@ fedavg-edge-ai/
 | Member | Role |
 |--------|------|
 | Sarra KLIDI | Context & Problem Statement |
-| Abir BOUZIRI | State of the Art |
-| Darine SMIRANI | Proposed Solution |
-| Mohamed SLITI | Paper Results Analysis |
+| Sarra KLIDI | State of the Art |
+| Abir BOUZIRI | Proposed Solution |
+| Darine SMIRANI | Paper Results Analysis |
 | **Skander ABID** | **Experiments, Simulation, Edge AI (this repo)** |
